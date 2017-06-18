@@ -22,8 +22,10 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/q231950/baikonur/cityparser"
 	"github.com/spf13/cobra"
 )
 
@@ -36,9 +38,13 @@ var citiesCmd = &cobra.Command{
 	Long:  `.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("cities called")
-		fmt.Printf("%s\n", citiesFolderPath)
 		if len(citiesFolderPath) == 0 {
-			log.Error("`path` is missing. Please provide a path `--path|-p <path to cities.csv>`")
+			log.Error("`path` to cities csv file is missing. Please provide a path `--path|-p <./path/to/cities.csv>`")
+		} else {
+			log.WithFields(log.Fields{"path": citiesFolderPath}).Info("Path to cities csv")
+			processor := new(cityparser.CityParser)
+			reader, _ := os.Open(citiesFolderPath)
+			processor.Parse(reader)
 		}
 	},
 }
