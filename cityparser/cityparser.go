@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 	"sync"
@@ -176,7 +175,6 @@ func (p CityParser) insertCity(recordChannel chan []string, wg *sync.WaitGroup) 
 			      ]
 			  }`)
 
-		log.Info(tmpl)
 		if err != nil {
 			panic(err)
 		}
@@ -199,10 +197,11 @@ func (p CityParser) insertCity(recordChannel chan []string, wg *sync.WaitGroup) 
 		}
 		defer resp.Body.Close()
 
-		fmt.Println("response Status:", resp.Status)
-		fmt.Println("response Headers:", resp.Header)
-		responseBody, _ := ioutil.ReadAll(resp.Body)
-		fmt.Println("response Body:", string(responseBody))
+		log.WithFields(log.Fields{"Status": resp.Status}).Info("")
+		// fmt.Println("response Status:", resp.Status)
+		// fmt.Println("response Headers:", resp.Header)
+		// responseBody, _ := ioutil.ReadAll(resp.Body)
+		// fmt.Println("response Body:", string(responseBody))
 		go func() {
 			time.Sleep(time.Millisecond * 10)
 			wg.Done()
