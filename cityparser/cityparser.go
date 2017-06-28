@@ -3,18 +3,16 @@ package cityparser
 import (
 	"bytes"
 	"encoding/csv"
-	"fmt"
 	"html/template"
 	"io"
 	"net/http"
 	"strconv"
 	"sync"
-	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/q231950/baikonur/model"
 	"github.com/q231950/sputnik/keymanager"
-	"github.com/q231950/sputnik/requesthandling"
+	requests "github.com/q231950/sputnik/requesthandling"
 )
 
 // CityParser parses cities out of a csv file
@@ -74,9 +72,16 @@ func (p CityParser) Parse(reader io.Reader) {
 func (p CityParser) insertCity(recordChannel chan []string, wg *sync.WaitGroup) {
 
 	client := &http.Client{}
+	keyManager := keymanager.New()
+	containerID := "iCloud.com.elbedev.bish"
+	config := requests.NewRequestConfig("1", containerID)
+	subpath := "records/modify"
+	database := "public"
+	requestManager := requests.New(config, &keyManager, database)
+	log.Warn("Inserting a city")
 
 	for record := range recordChannel {
-		log.Info(record)
+
 		population, _ := strconv.Atoi(record[14])
 		elevation, _ := strconv.Atoi(record[15])
 		latitude, _ := strconv.ParseFloat(record[4], 64)
@@ -102,12 +107,6 @@ func (p CityParser) insertCity(recordChannel chan []string, wg *sync.WaitGroup) 
 			DEM:            record[16],
 			Timezone:       record[17]}
 
-		keyManager := keymanager.New()
-		containerID := "iCloud.com.elbedev.bish"
-		config := requesthandling.RequestConfig{Version: "1", ContainerID: containerID}
-		subpath := "records/modify"
-		database := "public"
-		requestManager := requesthandling.New(config, &keyManager, database)
 		tmpl, err := template.New("test").Parse(`{
 			      "operations": [
 			          {
@@ -185,26 +184,17 @@ func (p CityParser) insertCity(recordChannel chan []string, wg *sync.WaitGroup) 
 			panic(err)
 		}
 		request, err := requestManager.PostRequest(subpath, tpl.String())
-		if err == nil {
-			fmt.Println(request)
-		} else {
-			log.Fatal("Failed to create ping request")
+		if err != nil {
+			log.Fatal("Failed to create request")
 		}
 
 		resp, err := client.Do(request)
 		if err != nil {
+			log.Error("Failed to execute request", request)
 			panic(err)
 		}
-		defer resp.Body.Close()
 
-		log.WithFields(log.Fields{"Status": resp.Status}).Info("")
-		// fmt.Println("response Status:", resp.Status)
-		// fmt.Println("response Headers:", resp.Header)
-		// responseBody, _ := ioutil.ReadAll(resp.Body)
-		// fmt.Println("response Body:", string(responseBody))
-		go func() {
-			time.Sleep(time.Millisecond * 10)
-			wg.Done()
-		}()
+		log.WithFields(log.Fields{"Status": resp.Status, "City": city.GeoNameID}).Info("")
+		wg.Done()
 	}
 }

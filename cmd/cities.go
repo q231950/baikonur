@@ -44,6 +44,7 @@ var citiesCmd = &cobra.Command{
 			log.WithFields(log.Fields{"path": citiesFolderPath}).Info("Path to cities csv")
 			processor := new(cityparser.CityParser)
 			reader, _ := os.Open(citiesFolderPath)
+			defer reader.Close()
 			processor.Parse(reader)
 		}
 	},
