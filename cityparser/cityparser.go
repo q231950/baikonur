@@ -71,14 +71,22 @@ func (p CityParser) Parse(reader io.Reader) {
 // modification date : date of last modification in yyyy-MM-dd format
 func (p CityParser) insertCity(recordChannel chan []string, wg *sync.WaitGroup) {
 
-	client := &http.Client{}
+	log.Warn("Inserting a city")
+
 	keyManager := keymanager.New()
 	containerID := "iCloud.com.elbedev.bish"
 	config := requests.NewRequestConfig("1", containerID)
 	subpath := "records/modify"
 	database := "public"
 	requestManager := requests.New(config, &keyManager, database)
-	log.Warn("Inserting a city")
+
+	tmpl, err := p.template()
+
+	if err != nil {
+		panic(err)
+	}
+
+	client := &http.Client{}
 
 	for record := range recordChannel {
 
@@ -107,77 +115,6 @@ func (p CityParser) insertCity(recordChannel chan []string, wg *sync.WaitGroup) 
 			DEM:            record[16],
 			Timezone:       record[17]}
 
-		tmpl, err := template.New("test").Parse(`{
-			      "operations": [
-			          {
-			              "operationType": "create",
-			              "record": {
-			                  "recordType": "cities",
-			                  "fields": {
-		                        "geonameid": {
-		                          "value": "{{.GeoNameID}}"
-		                        },
-														"name": {
-		                          "value": "{{.Name}}"
-		                        },
-			                      "asciiname": {
-			                          "value": "{{.ASCIIName}}"
-			                      },
-		                        "alternatenames": {
-		                          "value": "{{.AlternateNames}}"
-		                        },
-		                        "location": {
-		                          "value": {
-		                            "latitude": {{.Latitude}},
-		                            "longitude": {{.Longitude}}
-		                          }
-		                        },
-		                        "feature_class": {
-		                          "value": "{{.FeatureClass}}"
-		                        },
-		                        "feature_code": {
-		                          "value": "{{.FeatureCode}}"
-		                        },
-		                        "country_code": {
-		                          "value": "{{.CountryCode}}"
-		                        },
-		                        "cc2": {
-		                          "value": "{{.CC2}}"
-		                        },
-		                        "admin1_code": {
-		                          "value": "{{.AdminCode1}}"
-		                        },
-		                        "admin2_code": {
-		                          "value": "{{.AdminCode2}}"
-		                        },
-		                        "admin3_code": {
-		                          "value": "{{.AdminCode3}}"
-		                        },
-		                        "admin4_code": {
-		                          "value": "{{.AdminCode4}}"
-		                        },
-		                        "population": {
-		                          "value": {{.Population}}
-		                        },
-		                        "elevation": {
-		                          "value": {{.Elevation}}
-		                        },
-		                        "dem": {
-		                          "value": "{{.DEM}}"
-		                        },
-		                        "timezone": {
-		                          "value": "{{.Timezone}}"
-		                        }
-			                  }
-			              }
-			          }
-			      ]
-			  }`)
-
-		if err != nil {
-			panic(err)
-		}
-
 		var tpl bytes.Buffer
 		err = tmpl.Execute(&tpl, city)
 		if err != nil {
@@ -197,4 +134,73 @@ func (p CityParser) insertCity(recordChannel chan []string, wg *sync.WaitGroup) 
 		log.WithFields(log.Fields{"Status": resp.Status, "City": city.GeoNameID}).Info("")
 		wg.Done()
 	}
+}
+
+func (p CityParser) template() (*template.Template, error) {
+	return template.New("test").Parse(`{
+					"operations": [
+							{
+									"operationType": "create",
+									"record": {
+											"recordType": "cities",
+											"fields": {
+													"geonameid": {
+														"value": "{{.GeoNameID}}"
+													},
+													"name": {
+														"value": "{{.Name}}"
+													},
+													"asciiname": {
+															"value": "{{.ASCIIName}}"
+													},
+													"alternatenames": {
+														"value": "{{.AlternateNames}}"
+													},
+													"location": {
+														"value": {
+															"latitude": {{.Latitude}},
+															"longitude": {{.Longitude}}
+														}
+													},
+													"feature_class": {
+														"value": "{{.FeatureClass}}"
+													},
+													"feature_code": {
+														"value": "{{.FeatureCode}}"
+													},
+													"country_code": {
+														"value": "{{.CountryCode}}"
+													},
+													"cc2": {
+														"value": "{{.CC2}}"
+													},
+													"admin1_code": {
+														"value": "{{.AdminCode1}}"
+													},
+													"admin2_code": {
+														"value": "{{.AdminCode2}}"
+													},
+													"admin3_code": {
+														"value": "{{.AdminCode3}}"
+													},
+													"admin4_code": {
+														"value": "{{.AdminCode4}}"
+													},
+													"population": {
+														"value": {{.Population}}
+													},
+													"elevation": {
+														"value": {{.Elevation}}
+													},
+													"dem": {
+														"value": "{{.DEM}}"
+													},
+													"timezone": {
+														"value": "{{.Timezone}}"
+													}
+											}
+									}
+							}
+					]
+			}`)
 }
