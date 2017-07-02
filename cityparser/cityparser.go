@@ -40,7 +40,7 @@ func (p CityParser) Parse(reader io.Reader) {
 			log.Fatal(err)
 		} else {
 			wg.Add(1)
-			time.Sleep(time.Millisecond * 50)
+			time.Sleep(time.Millisecond * 500)
 			recordChannel <- record
 		}
 
