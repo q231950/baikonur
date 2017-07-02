@@ -82,7 +82,7 @@ func (p CityParser) insertCity(recordChannel chan []string, wg *sync.WaitGroup) 
 	database := "public"
 	requestManager := requests.New(config, &keyManager, database)
 
-	tmpl, err := p.template()
+	template, err := p.template()
 
 	if err != nil {
 		panic(err)
@@ -90,12 +90,12 @@ func (p CityParser) insertCity(recordChannel chan []string, wg *sync.WaitGroup) 
 
 	i := 0
 	for record := range recordChannel {
-		go p.processCityRecord(record, tmpl, &requestManager, wg, i)
+		go p.processCityRecord(record, template, &requestManager, wg, i)
 		i = i + 1
 	}
 }
 
-func (p CityParser) processCityRecord(record []string, tmpl *template.Template, requestManager requests.RequestManager, wg *sync.WaitGroup, number int) {
+func (p CityParser) processCityRecord(record []string, template *template.Template, requestManager requests.RequestManager, wg *sync.WaitGroup, number int) {
 	log.Warn("Inserting city", number)
 
 	client := &http.Client{}
@@ -127,12 +127,12 @@ func (p CityParser) processCityRecord(record []string, tmpl *template.Template, 
 		DEM:            record[16],
 		Timezone:       record[17]}
 
-	var tpl bytes.Buffer
-	err := tmpl.Execute(&tpl, city)
+	var json bytes.Buffer
+	err := template.Execute(&json, city)
 	if err != nil {
 		panic(err)
 	}
-	request, err := requestManager.PostRequest(subpath, tpl.String())
+	request, err := requestManager.PostRequest(subpath, json.String())
 	if err != nil {
 		log.Fatal("Failed to create request")
 	}
@@ -141,13 +141,12 @@ func (p CityParser) processCityRecord(record []string, tmpl *template.Template, 
 	request.Close = true
 	resp, err := client.Do(request)
 	if err != nil {
-		log.Error("Failed to execute request", request.Body, tpl.String())
+		log.Error("Failed to execute request", request.Body, json.String())
 		panic(err)
 	}
 	defer resp.Body.Close()
 
-	log.Warn("Sent", request.Body, tpl.String())
-	log.WithFields(log.Fields{"Status": resp.Status, "City": city.GeoNameID, "Response": resp.Header, "Closing": resp.Close}).Info("")
+	log.WithFields(log.Fields{"Status": resp.Status, "City": city.GeoNameID, "Response": resp.Header, "Closing": resp.Close}).Info("Sent")
 
 	wg.Done()
 }
