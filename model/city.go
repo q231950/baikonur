@@ -5,7 +5,7 @@ type City struct {
 	GeoNameID      string
 	Name           string
 	ASCIIName      string
-	AlternateNames string
+	AlternateNames []string
 	Latitude       float64
 	Longitude      float64
 	FeatureClass   string

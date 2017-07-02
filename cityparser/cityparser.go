@@ -7,7 +7,9 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/q231950/baikonur/model"
@@ -38,6 +40,7 @@ func (p CityParser) Parse(reader io.Reader) {
 			log.Fatal(err)
 		} else {
 			wg.Add(1)
+			time.Sleep(time.Millisecond * 50)
 			recordChannel <- record
 		}
 
@@ -71,12 +74,11 @@ func (p CityParser) Parse(reader io.Reader) {
 // modification date : date of last modification in yyyy-MM-dd format
 func (p CityParser) insertCity(recordChannel chan []string, wg *sync.WaitGroup) {
 
-	log.Warn("Inserting a city")
+	log.Warn("Process city channel")
 
 	keyManager := keymanager.New()
 	containerID := "iCloud.com.elbedev.bish"
 	config := requests.NewRequestConfig("1", containerID)
-	subpath := "records/modify"
 	database := "public"
 	requestManager := requests.New(config, &keyManager, database)
 
@@ -86,54 +88,68 @@ func (p CityParser) insertCity(recordChannel chan []string, wg *sync.WaitGroup) 
 		panic(err)
 	}
 
-	client := &http.Client{}
-
+	i := 0
 	for record := range recordChannel {
-
-		population, _ := strconv.Atoi(record[14])
-		elevation, _ := strconv.Atoi(record[15])
-		latitude, _ := strconv.ParseFloat(record[4], 64)
-		longitude, _ := strconv.ParseFloat(record[5], 64)
-
-		city := model.City{
-			GeoNameID:      record[0],
-			Name:           record[1],
-			ASCIIName:      record[2],
-			AlternateNames: record[3],
-			Latitude:       latitude,
-			Longitude:      longitude,
-			FeatureClass:   record[6],
-			FeatureCode:    record[7],
-			CountryCode:    record[8],
-			CC2:            record[9],
-			AdminCode1:     record[10],
-			AdminCode2:     record[11],
-			AdminCode3:     record[12],
-			AdminCode4:     record[13],
-			Population:     int64(population),
-			Elevation:      int64(elevation),
-			DEM:            record[16],
-			Timezone:       record[17]}
-
-		var tpl bytes.Buffer
-		err = tmpl.Execute(&tpl, city)
-		if err != nil {
-			panic(err)
-		}
-		request, err := requestManager.PostRequest(subpath, tpl.String())
-		if err != nil {
-			log.Fatal("Failed to create request")
-		}
-
-		resp, err := client.Do(request)
-		if err != nil {
-			log.Error("Failed to execute request", request)
-			panic(err)
-		}
-
-		log.WithFields(log.Fields{"Status": resp.Status, "City": city.GeoNameID}).Info("")
-		wg.Done()
+		go p.processCityRecord(record, tmpl, &requestManager, wg, i)
+		i = i + 1
 	}
+}
+
+func (p CityParser) processCityRecord(record []string, tmpl *template.Template, requestManager requests.RequestManager, wg *sync.WaitGroup, number int) {
+	log.Warn("Inserting city", number)
+
+	client := &http.Client{}
+	subpath := "records/modify"
+
+	population, _ := strconv.Atoi(record[14])
+	elevation, _ := strconv.Atoi(record[15])
+	latitude, _ := strconv.ParseFloat(record[4], 64)
+	longitude, _ := strconv.ParseFloat(record[5], 64)
+	alternateNames := strings.Split(record[3], ",")
+
+	city := model.City{
+		GeoNameID:      record[0],
+		Name:           record[1],
+		ASCIIName:      record[2],
+		AlternateNames: alternateNames,
+		Latitude:       latitude,
+		Longitude:      longitude,
+		FeatureClass:   record[6],
+		FeatureCode:    record[7],
+		CountryCode:    record[8],
+		CC2:            record[9],
+		AdminCode1:     record[10],
+		AdminCode2:     record[11],
+		AdminCode3:     record[12],
+		AdminCode4:     record[13],
+		Population:     int64(population),
+		Elevation:      int64(elevation),
+		DEM:            record[16],
+		Timezone:       record[17]}
+
+	var tpl bytes.Buffer
+	err := tmpl.Execute(&tpl, city)
+	if err != nil {
+		panic(err)
+	}
+	request, err := requestManager.PostRequest(subpath, tpl.String())
+	if err != nil {
+		log.Fatal("Failed to create request")
+	}
+
+	request.Header.Set("Connection", "close")
+	request.Close = true
+	resp, err := client.Do(request)
+	if err != nil {
+		log.Error("Failed to execute request", request.Body, tpl.String())
+		panic(err)
+	}
+	defer resp.Body.Close()
+
+	log.Warn("Sent", request.Body, tpl.String())
+	log.WithFields(log.Fields{"Status": resp.Status, "City": city.GeoNameID, "Response": resp.Header, "Closing": resp.Close}).Info("")
+
+	wg.Done()
 }
 
 func (p CityParser) template() (*template.Template, error) {
@@ -154,7 +170,10 @@ func (p CityParser) template() (*template.Template, error) {
 															"value": "{{.ASCIIName}}"
 													},
 													"alternatenames": {
-														"value": "{{.AlternateNames}}"
+														"value": [{{$names := .AlternateNames}}
+																	    {{ range $index, $element := .AlternateNames}}
+																	        {{if $index}},{{end}}"{{$element}}"
+																	    {{end}}]
 													},
 													"location": {
 														"value": {
