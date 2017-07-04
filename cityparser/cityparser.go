@@ -40,7 +40,7 @@ func (p CityParser) Parse(reader io.Reader) {
 			log.Fatal(err)
 		} else {
 			wg.Add(1)
-			time.Sleep(time.Millisecond * 500)
+			time.Sleep(time.Second * 5)
 			recordChannel <- record
 		}
 
@@ -96,8 +96,6 @@ func (p CityParser) insertCity(recordChannel chan []string, wg *sync.WaitGroup) 
 }
 
 func (p CityParser) processCityRecord(record []string, template *template.Template, requestManager requests.RequestManager, wg *sync.WaitGroup, number int) {
-	log.Warn("Inserting city", number)
-
 	client := &http.Client{}
 	subpath := "records/modify"
 
@@ -108,24 +106,25 @@ func (p CityParser) processCityRecord(record []string, template *template.Templa
 	alternateNames := strings.Split(record[3], ",")
 
 	city := model.City{
-		GeoNameID:      record[0],
-		Name:           record[1],
-		ASCIIName:      record[2],
-		AlternateNames: alternateNames,
-		Latitude:       latitude,
-		Longitude:      longitude,
-		FeatureClass:   record[6],
-		FeatureCode:    record[7],
-		CountryCode:    record[8],
-		CC2:            record[9],
-		AdminCode1:     record[10],
-		AdminCode2:     record[11],
-		AdminCode3:     record[12],
-		AdminCode4:     record[13],
-		Population:     int64(population),
-		Elevation:      int64(elevation),
-		DEM:            record[16],
-		Timezone:       record[17]}
+		GeoNameID:              record[0],
+		Name:                   record[1],
+		ASCIIName:              record[2],
+		AlternativeNamesString: record[3],
+		AlternateNames:         alternateNames,
+		Latitude:               latitude,
+		Longitude:              longitude,
+		FeatureClass:           record[6],
+		FeatureCode:            record[7],
+		CountryCode:            record[8],
+		CC2:                    record[9],
+		AdminCode1:             record[10],
+		AdminCode2:             record[11],
+		AdminCode3:             record[12],
+		AdminCode4:             record[13],
+		Population:             int64(population),
+		Elevation:              int64(elevation),
+		DEM:                    record[16],
+		Timezone:               record[17]}
 
 	var json bytes.Buffer
 	err := template.Execute(&json, city)
@@ -146,8 +145,8 @@ func (p CityParser) processCityRecord(record []string, template *template.Templa
 	}
 	defer resp.Body.Close()
 
-	log.WithFields(log.Fields{"Status": resp.Status, "City": city.GeoNameID, "Response": resp.Header, "Closing": resp.Close}).Info("Sent")
-
+	log.WithFields(log.Fields{"Number": number, "Status": resp.Status, "City": city.GeoNameID}).Info("Sent")
+	log.Info("send", number)
 	wg.Done()
 }
 
@@ -167,6 +166,9 @@ func (p CityParser) template() (*template.Template, error) {
 													},
 													"asciiname": {
 															"value": "{{.ASCIIName}}"
+													},
+													"alternatenamesstring": {
+															"value": "{{.AlternativeNamesString}}"
 													},
 													"alternatenames": {
 														"value": [{{$names := .AlternateNames}}
