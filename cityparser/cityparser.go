@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -24,7 +23,7 @@ type CityParser struct {
 // Parse parses the file given input
 func (p CityParser) Parse(reader io.Reader) {
 	r := csv.NewReader(reader)
-	r.Comma = ';'
+	r.Comma = '\t'
 
 	recordChannel := make(chan []string, 10)
 	wg := new(sync.WaitGroup)
@@ -40,10 +39,9 @@ func (p CityParser) Parse(reader io.Reader) {
 			log.Fatal(err)
 		} else {
 			wg.Add(1)
-			time.Sleep(time.Second * 5)
+			time.Sleep(time.Millisecond * 250)
 			recordChannel <- record
 		}
-
 	}
 
 	wg.Wait()
@@ -103,28 +101,17 @@ func (p CityParser) processCityRecord(record []string, template *template.Templa
 	elevation, _ := strconv.Atoi(record[15])
 	latitude, _ := strconv.ParseFloat(record[4], 64)
 	longitude, _ := strconv.ParseFloat(record[5], 64)
-	alternateNames := strings.Split(record[3], ",")
 
 	city := model.City{
-		GeoNameID:              record[0],
-		Name:                   record[1],
-		ASCIIName:              record[2],
-		AlternativeNamesString: record[3],
-		AlternateNames:         alternateNames,
-		Latitude:               latitude,
-		Longitude:              longitude,
-		FeatureClass:           record[6],
-		FeatureCode:            record[7],
-		CountryCode:            record[8],
-		CC2:                    record[9],
-		AdminCode1:             record[10],
-		AdminCode2:             record[11],
-		AdminCode3:             record[12],
-		AdminCode4:             record[13],
-		Population:             int64(population),
-		Elevation:              int64(elevation),
-		DEM:                    record[16],
-		Timezone:               record[17]}
+		GeoNameID:        record[0],
+		Name:             record[1],
+		AlternativeNames: record[3],
+		Latitude:         latitude,
+		Longitude:        longitude,
+		CountryCode:      record[8],
+		Population:       int64(population),
+		Elevation:        int64(elevation),
+		Timezone:         record[17]}
 
 	var json bytes.Buffer
 	err := template.Execute(&json, city)
@@ -156,7 +143,7 @@ func (p CityParser) template() (*template.Template, error) {
 							{
 									"operationType": "create",
 									"record": {
-											"recordType": "cities",
+											"recordType": "City",
 											"fields": {
 													"geonameid": {
 														"value": "{{.GeoNameID}}"
@@ -164,17 +151,8 @@ func (p CityParser) template() (*template.Template, error) {
 													"name": {
 														"value": "{{.Name}}"
 													},
-													"asciiname": {
-															"value": "{{.ASCIIName}}"
-													},
-													"alternatenamesstring": {
-															"value": "{{.AlternativeNamesString}}"
-													},
 													"alternatenames": {
-														"value": [{{$names := .AlternateNames}}
-																	    {{ range $index, $element := .AlternateNames}}
-																	        {{if $index}},{{end}}"{{$element}}"
-																	    {{end}}]
+															"value": "{{.AlternativeNames}}"
 													},
 													"location": {
 														"value": {
@@ -182,38 +160,14 @@ func (p CityParser) template() (*template.Template, error) {
 															"longitude": {{.Longitude}}
 														}
 													},
-													"feature_class": {
-														"value": "{{.FeatureClass}}"
-													},
-													"feature_code": {
-														"value": "{{.FeatureCode}}"
-													},
-													"country_code": {
+													"countrycode": {
 														"value": "{{.CountryCode}}"
-													},
-													"cc2": {
-														"value": "{{.CC2}}"
-													},
-													"admin1_code": {
-														"value": "{{.AdminCode1}}"
-													},
-													"admin2_code": {
-														"value": "{{.AdminCode2}}"
-													},
-													"admin3_code": {
-														"value": "{{.AdminCode3}}"
-													},
-													"admin4_code": {
-														"value": "{{.AdminCode4}}"
 													},
 													"population": {
 														"value": {{.Population}}
 													},
 													"elevation": {
 														"value": {{.Elevation}}
-													},
-													"dem": {
-														"value": "{{.DEM}}"
 													},
 													"timezone": {
 														"value": "{{.Timezone}}"
