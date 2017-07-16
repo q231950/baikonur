@@ -10,7 +10,8 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/apex/log"
+
 	"github.com/q231950/baikonur/model"
 	"github.com/q231950/sputnik/keymanager"
 	requests "github.com/q231950/sputnik/requesthandling"
@@ -34,12 +35,13 @@ func (p CityParser) Parse(reader io.Reader) {
 		record, err := r.Read()
 		if err == io.EOF {
 			break
-		}
-		if err != nil {
-			log.Fatal(err)
+		} else if err != nil {
+			log.WithError(err).Fatal("Failed to read record from csv line")
 		} else {
 			wg.Add(1)
-			time.Sleep(time.Millisecond * 250)
+			sleepTimeMillis := time.Duration(1000 * time.Millisecond)
+			log.Debugf("Sleeping for %s", sleepTimeMillis)
+			time.Sleep(sleepTimeMillis)
 			recordChannel <- record
 		}
 	}
@@ -75,7 +77,7 @@ func (p CityParser) insertCity(recordChannel chan []string, wg *sync.WaitGroup) 
 	log.Warn("Process city channel")
 
 	keyManager := keymanager.New()
-	containerID := "iCloud.com.elbedev.bish"
+	containerID := "iCloud.com.elbedev.bishcommunity"
 	config := requests.NewRequestConfig("1", containerID)
 	database := "public"
 	requestManager := requests.New(config, &keyManager, database)
@@ -127,13 +129,14 @@ func (p CityParser) processCityRecord(record []string, template *template.Templa
 	request.Close = true
 	resp, err := client.Do(request)
 	if err != nil {
-		log.Error("Failed to execute request", request.Body, json.String())
-		panic(err)
+		log.WithError(err).WithFields(log.Fields{
+			"body":    request.Body,
+			"payload": json.String()}).Error("Failed to execute request")
 	}
 	defer resp.Body.Close()
 
 	log.WithFields(log.Fields{"Number": number, "Status": resp.Status, "City": city.GeoNameID}).Info("Sent")
-	log.Info("send", number)
+	log.Infof("Sending request number %s", number)
 	wg.Done()
 }
 

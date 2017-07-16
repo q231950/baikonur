@@ -21,10 +21,9 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/apex/log"
 	"github.com/q231950/baikonur/cityparser"
 	"github.com/spf13/cobra"
 )
@@ -37,7 +36,7 @@ var citiesCmd = &cobra.Command{
 	Short: "Import cities",
 	Long:  `.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("cities called")
+		log.Debug("Attempting to import cities...")
 		if len(citiesFolderPath) == 0 {
 			log.Error("`path` to cities csv file is missing. Please provide a path `--path|-p <./path/to/cities.csv>`")
 		} else {
@@ -46,7 +45,7 @@ var citiesCmd = &cobra.Command{
 			reader, error := os.Open(citiesFolderPath)
 			defer reader.Close()
 			if error != nil {
-				log.Error(error)
+				log.WithError(error).Error("Failed to open csv.")
 				return
 			}
 			processor.Parse(reader)

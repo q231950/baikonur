@@ -20,8 +20,18 @@
 
 package main
 
-import "github.com/q231950/baikonur/cmd"
+import (
+	"os"
+
+	"github.com/apex/log"
+	"github.com/apex/log/handlers/cli"
+	"github.com/q231950/baikonur/cmd"
+)
 
 func main() {
+
+	log.SetHandler(cli.New(os.Stderr))
+	log.SetLevel(log.DebugLevel)
+
 	cmd.Execute()
 }
