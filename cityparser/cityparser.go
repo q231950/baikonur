@@ -74,18 +74,17 @@ func (p CityParser) Parse(reader io.Reader) {
 // modification date : date of last modification in yyyy-MM-dd format
 func (p CityParser) insertCity(recordChannel chan []string, wg *sync.WaitGroup) {
 
-	log.Warn("Process city channel")
+	log.Debug("Attempt to insert city record")
 
 	keyManager := keymanager.New()
 	containerID := "iCloud.com.elbedev.bishcommunity"
-	config := requests.NewRequestConfig("1", containerID)
-	database := "public"
-	requestManager := requests.New(config, &keyManager, database)
+	config := requests.RequestConfig{Version: "1", ContainerID: containerID, Database: "public"}
+	requestManager := requests.New(config, &keyManager)
 
 	template, err := p.template()
 
 	if err != nil {
-		panic(err)
+		log.WithError(err).Fatal("Failed to create template.")
 	}
 
 	i := 0
@@ -122,7 +121,7 @@ func (p CityParser) processCityRecord(record []string, template *template.Templa
 	}
 	request, err := requestManager.PostRequest(subpath, json.String())
 	if err != nil {
-		log.Fatal("Failed to create request")
+		log.WithError(err).WithField("Geoname id", record[0]).Fatal("Failed to create request for city.")
 	}
 
 	request.Header.Set("Connection", "close")
@@ -130,13 +129,15 @@ func (p CityParser) processCityRecord(record []string, template *template.Templa
 	resp, err := client.Do(request)
 	if err != nil {
 		log.WithError(err).WithFields(log.Fields{
-			"body":    request.Body,
-			"payload": json.String()}).Error("Failed to execute request")
+			"payload": json.String(),
+			"number":  number}).Error("Failed to execute request")
 	}
 	defer resp.Body.Close()
 
-	log.WithFields(log.Fields{"Number": number, "Status": resp.Status, "City": city.GeoNameID}).Info("Sent")
-	log.Infof("Sending request number %s", number)
+	log.WithFields(log.Fields{
+		"Number": number,
+		"Status": resp.Status,
+		"City":   city.GeoNameID}).Infof("Completed %s", record[1])
 	wg.Done()
 }
 
