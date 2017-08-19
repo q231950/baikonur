@@ -39,7 +39,7 @@ func (p CityParser) Parse(reader io.Reader) {
 			log.WithError(err).Fatal("Failed to read record from csv line")
 		} else {
 			wg.Add(1)
-			sleepTimeMillis := time.Duration(1000 * time.Millisecond)
+			sleepTimeMillis := time.Duration(250 * time.Millisecond)
 			log.Debugf("Sleeping for %s", sleepTimeMillis)
 			time.Sleep(sleepTimeMillis)
 			recordChannel <- record
@@ -77,8 +77,7 @@ func (p CityParser) insertCity(recordChannel chan []string, wg *sync.WaitGroup) 
 	log.Debug("Attempt to insert city record")
 
 	keyManager := keymanager.New()
-	containerID := "iCloud.com.elbedev.bishcommunity"
-	config := requests.RequestConfig{Version: "1", ContainerID: containerID, Database: "public"}
+	config := requests.RequestConfig{Version: "1", ContainerID: "iCloud.com.elbedev.bishcommunity", Database: "public"}
 	requestManager := requests.New(config, &keyManager)
 
 	template, err := p.template()
