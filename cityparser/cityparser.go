@@ -13,7 +13,7 @@ import (
 	log "github.com/apex/log"
 
 	"github.com/q231950/baikonur/model"
-	"github.com/q231950/sputnik/keymanager"
+	keymanager "github.com/q231950/sputnik/keymanager"
 	requests "github.com/q231950/sputnik/requesthandling"
 )
 
@@ -95,7 +95,7 @@ func (p CityParser) insertCity(recordChannel chan []string, wg *sync.WaitGroup) 
 
 func (p CityParser) processCityRecord(record []string, template *template.Template, requestManager requests.RequestManager, wg *sync.WaitGroup, number int) {
 	client := &http.Client{}
-	subpath := "records/modify"
+	subpath := "modify"
 
 	population, _ := strconv.Atoi(record[14])
 	elevation, _ := strconv.Atoi(record[15])
